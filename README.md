@@ -1,48 +1,44 @@
 # Machine Learning in Rust from Scratch
 
-This project follows a chapter-by-chapter workflow for learning machine learning in Rust, starting with raw data and building up toward model training and evaluation.
+A chapter-by-chapter machine learning project using the Framingham heart study dataset. The current chapter prepares the data for modeling; no model is trained yet.
 
-## Chapter 1 — A first look at the data
+## Chapter 2 — Clean and split the data
 
-The first chapter loads the Framingham heart study dataset and answers a few foundational questions:
+Starting from the raw dataset, this chapter removes unusable data and creates reproducible training and test sets. The target is `TenYearCHD`.
 
-- How large is the table?
-- What columns does it contain?
-- Which values are missing?
-- What is the distribution of the target outcome?
-
-The exploratory code lives in [src/explore.rs](src/explore.rs) and reads the CSV from [data/framingham.csv](data/framingham.csv). It prints the first few rows, summarises each column type and missing values, counts the `TenYearCHD` event rate, and reports basic summary statistics for the main numeric features.
-
-### Run the chapter
+### 1. Clean
 
 ```bash
-cargo run --release -- explore
+cargo run --release -- clean
 ```
 
-This executes the chapter 1 data exploration stage and prints the dataset summary in the terminal.
+The cleaning stage reports the original class balance, drops the non-health `education` column, removes rows with any remaining missing values, reports the resulting balance, and writes [data/framingham_clean.csv](data/framingham_clean.csv).
 
-### Example output
+![Clean stage output](assets/chapter2-clean.png)
 
-![Chapter 1 output](assets/chapter1.png)
+### 2. Split
 
-### What the output tells us
+Run this after cleaning:
 
-- The dataset contains 4,240 rows and 16 columns.
-- Several columns have missing values, including `education`, `cigsPerDay`, `BMI`, and `glucose`.
-- The `TenYearCHD` target is imbalanced: roughly 15.2% of patients were diagnosed with heart disease within 10 years.
-- Key summarised variables include age, systolic blood pressure, total cholesterol, BMI, smoking exposure, and glucose.
+```bash
+cargo run --release -- split
+```
 
-### Notes
+The split stage uses seed `42` to shuffle each target class separately, assigns 20% of each class to the test set, then shuffles each resulting set. This preserves the target-class proportions in both sets. It prints each split's class balance and writes [data/framingham_train.csv](data/framingham_train.csv) and [data/framingham_test.csv](data/framingham_test.csv).
 
-- The first build may take a few minutes because Cargo downloads and compiles Polars.
-- Subsequent runs are much faster.
-- The focus of this chapter is understanding the dataset, not fitting any model yet.
+![Split stage output](assets/Chapter2-split.png)
 
----
+The code also includes a five-fold assignment helper for training data, but cross-validation and model training are not wired into a runnable stage yet.
 
-## Project structure
+## Previous chapter
 
-- [src/main.rs](src/main.rs) — entry point and chapter selector
-- [src/explore.rs](src/explore.rs) — chapter 1 exploratory analysis
+Chapter 1 explored the raw CSV: its dimensions and columns, missing values, target balance, and summary statistics for selected numeric features. See the [Chapter 1 branch](https://github.com/Chatelo/Machine-Learning-In-Rust-from-scratch/tree/01-data-explore), or run it with `cargo run --release -- explore`. Its output screenshot is [assets/chapter1.png](assets/chapter1.png).
+
+## Project files
+
+- [src/main.rs](src/main.rs) — command-line stage selector (`explore`, `clean`, `split`)
+- [src/explore.rs](src/explore.rs) — raw-data exploration
+- [src/data.rs](src/data.rs) — cleaning, splitting, shared data helpers, and fold assignment
 - [data/framingham.csv](data/framingham.csv) — raw input dataset
-- [assets/chapter1.png](assets/chapter1.png) — screenshot for chapter 1 output
+
+The first build may take a few minutes while Cargo compiles Polars; later runs are faster.
