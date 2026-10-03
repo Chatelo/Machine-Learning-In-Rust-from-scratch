@@ -1,44 +1,40 @@
 # Machine Learning in Rust from Scratch
 
-A chapter-by-chapter machine learning project using the Framingham heart study dataset. The current chapter prepares the data for modeling; no model is trained yet.
+A chapter-by-chapter machine learning project using the Framingham heart study dataset. This branch implements the linear-regression chapter and uses the cleaned data prepared in earlier steps.
 
-## Chapter 2 — Clean and split the data
+## Chapter 3 — Linear regression for blood pressure
 
-Starting from the raw dataset, this chapter removes unusable data and creates reproducible training and test sets. The target is `TenYearCHD`.
+This chapter fits an ordinary least squares model to predict `sysBP` from eight patient features. The model uses the cleaned training split, prints the learned coefficients, and evaluates how well it generalises to the held-out test set.
 
-### 1. Clean
-
-```bash
-cargo run --release -- clean
-```
-
-The cleaning stage reports the original class balance, drops the non-health `education` column, removes rows with any remaining missing values, reports the resulting balance, and writes [data/framingham_clean.csv](data/framingham_clean.csv).
-
-![Clean stage output](assets/chapter2-clean.png)
-
-### 2. Split
-
-Run this after cleaning:
+### Train the model
 
 ```bash
-cargo run --release -- split
+cargo run --release -- linear-train
 ```
 
-The split stage uses seed `42` to shuffle each target class separately, assigns 20% of each class to the test set, then shuffles each resulting set. This preserves the target-class proportions in both sets. It prints each split's class balance and writes [data/framingham_train.csv](data/framingham_train.csv) and [data/framingham_test.csv](data/framingham_test.csv).
+The training stage reads [data/framingham_train.csv](data/framingham_train.csv), computes feature correlations with `sysBP`, fits a linear regression model, prints the intercept and per-feature coefficients, and saves the trained parameters to `linear_model.json`.
 
-![Split stage output](assets/Chapter2-split.png)
+### Evaluate the model
 
-The code also includes a five-fold assignment helper for training data, but cross-validation and model training are not wired into a runnable stage yet.
+```bash
+cargo run --release -- linear-evaluate
+```
 
-## Previous chapter
+The evaluation stage loads the saved model, scores it on [data/framingham_test.csv](data/framingham_test.csv), compares it to the "always guess the mean" baseline, prints MAE/RMSE/R², and reports the share of predictions within 10 and 20 mmHg of the true value.
 
-Chapter 1 explored the raw CSV: its dimensions and columns, missing values, target balance, and summary statistics for selected numeric features. See the [Chapter 1 branch](https://github.com/Chatelo/Machine-Learning-In-Rust-from-scratch/tree/01-data-explore), or run it with `cargo run --release -- explore`. Its output screenshot is [assets/chapter1.png](assets/chapter1.png).
+## Earlier chapters
+
+- Chapter 1 explored the raw dataset and the target distribution: [Chapter 1 branch](https://github.com/Chatelo/Machine-Learning-In-Rust-from-scratch/tree/01-data-explore)
+- Chapter 2 cleaned the data and created the train/test split: [Chapter 2 branch](https://github.com/Chatelo/Machine-Learning-In-Rust-from-scratch/tree/02-data-cleaning-split)
+- This branch is Chapter 3: [03-linear-regression](https://github.com/Chatelo/Machine-Learning-In-Rust-from-scratch/tree/03-linear-regression)
 
 ## Project files
 
-- [src/main.rs](src/main.rs) — command-line stage selector (`explore`, `clean`, `split`)
-- [src/explore.rs](src/explore.rs) — raw-data exploration
-- [src/data.rs](src/data.rs) — cleaning, splitting, shared data helpers, and fold assignment
-- [data/framingham.csv](data/framingham.csv) — raw input dataset
+- [src/main.rs](src/main.rs) — command-line stage selector (`explore`, `clean`, `split`, `linear-train`, `linear-evaluate`)
+- [src/data.rs](src/data.rs) — shared loading, cleaning, and split helpers
+- [src/explore.rs](src/explore.rs) — chapter 1 raw-data exploration
+- [src/linear.rs](src/linear.rs) — chapter 3 linear-regression training and evaluation
+- [data/framingham_train.csv](data/framingham_train.csv) — training split
+- [data/framingham_test.csv](data/framingham_test.csv) — test split
 
-The first build may take a few minutes while Cargo compiles Polars; later runs are faster.
+The first build may take a few minutes while Cargo compiles the required crates; later runs are faster.
