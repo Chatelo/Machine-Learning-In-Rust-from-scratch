@@ -5,6 +5,7 @@
 
 mod data;
 mod explore;
+mod linear;
 
 /// Any error from any library can be returned with `?`.
 pub type AnyResult<T> = Result<T, Box<dyn std::error::Error>>;
@@ -15,6 +16,8 @@ fn main() -> AnyResult<()> {
         "explore" => explore::explore(),
         "clean" => data::clean(),
         "split" => data::split(),
+        "linear-train" => linear::train(),
+        "linear-evaluate" => linear::evaluate(),
         _ => {
             eprint!("Usage: cargo run --release -- <explore>");
             std::process::exit(1);
