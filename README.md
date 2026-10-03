@@ -14,6 +14,8 @@ cargo run --release -- linear-train
 
 The training stage reads [data/framingham_train.csv](data/framingham_train.csv), computes feature correlations with `sysBP`, fits a linear regression model, prints the intercept and per-feature coefficients, and saves the trained parameters to `linear_model.json`.
 
+![Train stage output](assets/chapter3-train.png)
+
 ### Evaluate the model
 
 ```bash
@@ -21,6 +23,8 @@ cargo run --release -- linear-evaluate
 ```
 
 The evaluation stage loads the saved model, scores it on [data/framingham_test.csv](data/framingham_test.csv), compares it to the "always guess the mean" baseline, prints MAE/RMSE/R², and reports the share of predictions within 10 and 20 mmHg of the true value.
+
+![Evaluation stage output](assets/chapter3-evauate.png)
 
 ## Earlier chapters
 
