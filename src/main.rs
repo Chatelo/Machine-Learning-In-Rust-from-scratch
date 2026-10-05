@@ -13,8 +13,12 @@
 //!cargo run --release -- tree-train(Chapter 5: decision tree)
 //!cargo run --release -- tree-evaluate(Chapter 5)
 //!cargo run --release -- tree-tune(Chapter 5)
+//!cargo run --release -- forest-train(Chapter 6: random forest)
+//!cargo run --release -- forest-evaluate(Chapter 6)
+//!cargo run --release -- forest-tune(Chapter 6)
 mod data;
 mod explore;
+mod forest;
 mod linear;
 mod logistic;
 mod metrics;
@@ -37,11 +41,13 @@ fn main() -> AnyResult<()> {
         "tree-train" => tree::train(),
         "tree-evaluate" => tree::evaluate(),
         "tree-tune" => tree::tune(),
+        "forest-train" => forest::train(),
+        "forest-evaluate" => forest::evaluate(),
+        "forest-tune" => forest::tune(),
         _ => {
-            eprintln!(
-                "Usage: cargo run --release -- <explore|clean|split|linear-train|linear-
-evaluate|train|evaluate|tune|serve|tree-train|tree-evaluate|tree-tune>"
-            );
+            eprintln!("Usage: cargo run --release -- <explore|clean|split|linear-train|linear-
+evaluate|train|evaluate|tune|serve|tree-train|tree-evaluate|tree-tune|forest-train|forest-evaluate|forest-
+tune>");
             std::process::exit(1);
         }
     }

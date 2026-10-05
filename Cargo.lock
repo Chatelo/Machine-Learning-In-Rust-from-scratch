@@ -571,6 +571,7 @@ dependencies = [
  "ndarray",
  "polars",
  "rand 0.9.5",
+ "rayon",
  "serde",
  "serde_json",
  "tokio",
