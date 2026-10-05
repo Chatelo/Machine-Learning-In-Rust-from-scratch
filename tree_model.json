@@ -1,0 +1,198 @@
+{
+  "target": "TenYearCHD",
+  "features": [
+    "male",
+    "age",
+    "currentSmoker",
+    "cigsPerDay",
+    "BPMeds",
+    "prevalentStroke",
+    "prevalentHyp",
+    "diabetes",
+    "totChol",
+    "sysBP",
+    "diaBP",
+    "BMI",
+    "heartRate",
+    "glucose"
+  ],
+  "settings": {
+    "max_depth": 4,
+    "min_leaf": 50
+  },
+  "threshold": 0.15,
+  "root": {
+    "Split": {
+      "feature": 1,
+      "threshold": 55.5,
+      "left": {
+        "Split": {
+          "feature": 1,
+          "threshold": 46.5,
+          "left": {
+            "Split": {
+              "feature": 3,
+              "threshold": 9.5,
+              "left": {
+                "Split": {
+                  "feature": 9,
+                  "threshold": 148.75,
+                  "left": {
+                    "Leaf": {
+                      "probability": 0.035,
+                      "rows": 600
+                    }
+                  },
+                  "right": {
+                    "Leaf": {
+                      "probability": 0.12,
+                      "rows": 50
+                    }
+                  }
+                }
+              },
+              "right": {
+                "Split": {
+                  "feature": 8,
+                  "threshold": 233.5,
+                  "left": {
+                    "Leaf": {
+                      "probability": 0.0700280112044818,
+                      "rows": 357
+                    }
+                  },
+                  "right": {
+                    "Leaf": {
+                      "probability": 0.15352697095435686,
+                      "rows": 241
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "right": {
+            "Split": {
+              "feature": 0,
+              "threshold": 0.5,
+              "left": {
+                "Split": {
+                  "feature": 9,
+                  "threshold": 158.75,
+                  "left": {
+                    "Leaf": {
+                      "probability": 0.08405172413793104,
+                      "rows": 464
+                    }
+                  },
+                  "right": {
+                    "Leaf": {
+                      "probability": 0.20588235294117646,
+                      "rows": 68
+                    }
+                  }
+                }
+              },
+              "right": {
+                "Split": {
+                  "feature": 9,
+                  "threshold": 124.75,
+                  "left": {
+                    "Leaf": {
+                      "probability": 0.10144927536231885,
+                      "rows": 138
+                    }
+                  },
+                  "right": {
+                    "Leaf": {
+                      "probability": 0.3088803088803089,
+                      "rows": 259
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "right": {
+        "Split": {
+          "feature": 9,
+          "threshold": 144.75,
+          "left": {
+            "Split": {
+              "feature": 0,
+              "threshold": 0.5,
+              "left": {
+                "Split": {
+                  "feature": 10,
+                  "threshold": 73.5,
+                  "left": {
+                    "Leaf": {
+                      "probability": 0.3018867924528302,
+                      "rows": 53
+                    }
+                  },
+                  "right": {
+                    "Leaf": {
+                      "probability": 0.09696969696969697,
+                      "rows": 165
+                    }
+                  }
+                }
+              },
+              "right": {
+                "Split": {
+                  "feature": 8,
+                  "threshold": 208.5,
+                  "left": {
+                    "Leaf": {
+                      "probability": 0.1794871794871795,
+                      "rows": 78
+                    }
+                  },
+                  "right": {
+                    "Leaf": {
+                      "probability": 0.2914285714285714,
+                      "rows": 175
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "right": {
+            "Split": {
+              "feature": 3,
+              "threshold": 12.5,
+              "left": {
+                "Split": {
+                  "feature": 9,
+                  "threshold": 173.5,
+                  "left": {
+                    "Leaf": {
+                      "probability": 0.263681592039801,
+                      "rows": 201
+                    }
+                  },
+                  "right": {
+                    "Leaf": {
+                      "probability": 0.3902439024390244,
+                      "rows": 82
+                    }
+                  }
+                }
+              },
+              "right": {
+                "Leaf": {
+                  "probability": 0.5714285714285714,
+                  "rows": 70
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

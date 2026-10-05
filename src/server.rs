@@ -1,34 +1,59 @@
 //! Serving predictions over HTTP.
+//!
+//!POST /predictlogistic regression (Chapter 4)
+//!POST /predict/treedecision tree (Chapter 5)
 use axum::{Json, Router, extract::State, http::StatusCode, routing::post};
 use ndarray::Array2;
 use serde::Serialize;
 use std::{collections::HashMap, sync::Arc};
 
 use crate::AnyResult;
-use crate::logistic::{MODEL, SavedLogisticModel, predict_probs};
+use crate::logistic;
+use crate::logistic::{SavedLogisticModel, predict_probs};
+use crate::tree::{self, SavedTree};
 
 const ADDRESS: &str = "127.0.0.1:3000";
 
+/// Both models, loaded once and shared by every request.
+struct AppState {
+    logistic: SavedLogisticModel,
+    tree: SavedTree,
+}
+type ApiError = (StatusCode, String);
+
 #[derive(Serialize)]
 pub struct Prediction {
+    model: &'static str,
     probability: f64,
     threshold: f64,
     at_risk: bool,
+    /// Only the tree can say WHY: the answers it followed to reach its leaf.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    path: Option<Vec<String>>,
 }
 
 pub fn serve() -> AnyResult<()> {
-    let model: SavedLogisticModel = serde_json::from_str(&std::fs::read_to_string(MODEL)?)?;
-
+    let logistic: SavedLogisticModel =
+        serde_json::from_str(&std::fs::read_to_string(logistic::MODEL)?)?;
+    let tree: SavedTree = serde_json::from_str(&std::fs::read_to_string(tree::MODEL)?)?;
     println!(
-        "Loaded {MODEL} (alpha {}, threshold {:.2})",
-        model.alpha, model.threshold
+        "Loaded {} (alpha {}, threshold {:.2})",
+        logistic::MODEL,
+        logistic.alpha,
+        logistic.threshold
     );
-    println!("Expects: {}", model.features.join(", "));
-
+    println!(
+        "Loaded {} (depth {}, min leaf {}, threshold {:.2})",
+        tree::MODEL,
+        tree.settings.max_depth,
+        tree.settings.min_leaf,
+        tree.threshold
+    );
+    println!("Expects: {}", logistic.features.join(", "));
     let app = Router::new()
-        .route("/predict", post(predict))
-        .with_state(Arc::new(model));
-
+        .route("/predict", post(predict_logistic))
+        .route("/predict/tree", post(predict_tree))
+        .with_state(Arc::new(AppState { logistic, tree }));
     // main() is not async, so start the async runtime here.
     tokio::runtime::Runtime::new()?.block_on(async {
         let listener = tokio::net::TcpListener::bind(ADDRESS).await?;
@@ -37,37 +62,56 @@ pub fn serve() -> AnyResult<()> {
         Ok(())
     })
 }
-
-pub async fn predict(
-    State(model): State<Arc<SavedLogisticModel>>,
-    Json(input): Json<HashMap<String, f64>>,
-) -> Result<Json<Prediction>, (StatusCode, String)> {
-    // Put the values into the exact order the model was trained with.
-    let mut row = Vec::with_capacity(model.features.len());
+/// Put the values into the exact order the model was trained with,
+/// or list everything that is missing or not a real number.
+fn read_row(features: &[String], input: &HashMap<String, f64>) -> Result<Vec<f64>, ApiError> {
+    let mut row = Vec::with_capacity(features.len());
     let mut missing = Vec::new();
-
-    for name in &model.features {
+    for name in features {
         match input.get(name) {
             Some(value) if value.is_finite() => row.push(*value),
             _ => missing.push(name.as_str()),
         }
     }
-
-    if !missing.is_empty() {
-        return Err((
+    if missing.is_empty() {
+        Ok(row)
+    } else {
+        Err((
             StatusCode::BAD_REQUEST,
             format!("Missing or invalid: {}\n", missing.join(", ")),
-        ));
+        ))
     }
+}
 
+async fn predict_logistic(
+    State(state): State<Arc<AppState>>,
+    Json(input): Json<HashMap<String, f64>>,
+) -> Result<Json<Prediction>, ApiError> {
+    let model = &state.logistic;
+    let row = read_row(&model.features, &input)?;
     let x = Array2::from_shape_vec((1, row.len()), row)
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    // let probability = predict_probs(&model, &x)[1];
-    let probability = predict_probs(&model, &x)[0];
-
+    let probability = logistic::predict_probs(model, &x)[0];
     Ok(Json(Prediction {
+        model: "logistic",
         probability,
         threshold: model.threshold,
         at_risk: probability >= model.threshold,
+        path: None,
+    }))
+}
+async fn predict_tree(
+    State(state): State<Arc<AppState>>,
+    Json(input): Json<HashMap<String, f64>>,
+) -> Result<Json<Prediction>, ApiError> {
+    let model = &state.tree;
+    let row = read_row(&model.features, &input)?;
+    let (probability, path) = tree::explain(&model.root, &row, &model.features);
+    Ok(Json(Prediction {
+        model: "tree",
+        probability,
+        threshold: model.threshold,
+        at_risk: probability >= model.threshold,
+        path: Some(path),
     }))
 }

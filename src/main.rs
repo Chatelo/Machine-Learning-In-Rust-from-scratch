@@ -10,17 +10,18 @@
 //!cargo run --release -- evaluate(Chapter 4)
 //!cargo run --release -- tune(Chapter 4)
 //!cargo run --release -- serve(Chapter 4 onward: serve every model)
-
+//!cargo run --release -- tree-train(Chapter 5: decision tree)
+//!cargo run --release -- tree-evaluate(Chapter 5)
+//!cargo run --release -- tree-tune(Chapter 5)
 mod data;
 mod explore;
 mod linear;
 mod logistic;
 mod metrics;
 mod server;
-
+mod tree;
 /// Any error from any library can be returned with `?`.
 pub type AnyResult<T> = Result<T, Box<dyn std::error::Error>>;
-
 fn main() -> AnyResult<()> {
     let stage = std::env::args().nth(1).unwrap_or_default();
     match stage.as_str() {
@@ -33,10 +34,13 @@ fn main() -> AnyResult<()> {
         "evaluate" => logistic::evaluate(),
         "tune" => logistic::tune(),
         "serve" => server::serve(),
+        "tree-train" => tree::train(),
+        "tree-evaluate" => tree::evaluate(),
+        "tree-tune" => tree::tune(),
         _ => {
-            eprint!(
+            eprintln!(
                 "Usage: cargo run --release -- <explore|clean|split|linear-train|linear-
-evaluate|train|evaluate|tune|serve>"
+evaluate|train|evaluate|tune|serve|tree-train|tree-evaluate|tree-tune>"
             );
             std::process::exit(1);
         }
