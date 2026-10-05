@@ -14,6 +14,8 @@ cargo run --release -- tree-train
 
 The training script reads [data/framingham_train.csv](data/framingham_train.csv), grows a depth-limited tree with a minimum leaf-size guardrail, prints the rule tree, counts the leaves, and saves the model to `tree_model.json`.
 
+![Chapter 5 training output](assets/chapter5-1.png)
+
 ### Evaluate the tree
 
 ```bash
@@ -22,6 +24,8 @@ cargo run --release -- tree-evaluate
 
 The evaluation stage loads the saved tree, scores it on [data/framingham_test.csv](data/framingham_test.csv), prints AUC and thresholded classification metrics, and compares the model against the baseline of predicting zero all the time.
 
+![Chapter 5 evaluation output](assets/chapter5-2.png)
+
 ### Tune the tree
 
 ```bash
@@ -29,6 +33,8 @@ cargo run --release -- tree-tune
 ```
 
 This runs 5-fold cross-validation on the training set, explores several depth and minimum-leaf settings, and picks the best threshold by F1 score before saving the tuned model.
+
+![Chapter 5 tuning output](assets/chapter5-3.png)
 
 ### Serve the prediction API
 
@@ -42,6 +48,8 @@ The HTTP server exposes:
 - `POST /predict/tree` for the decision tree
 
 The tree endpoint is explainable: it returns both the predicted probability and the rule path that led to the leaf decision.
+
+![Chapter 5 API output](assets/chapter5-4.png)
 
 ## Earlier chapters
 
