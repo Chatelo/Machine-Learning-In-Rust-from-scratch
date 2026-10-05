@@ -3,20 +3,26 @@
 //!POST /predictlogistic regression (Chapter 4)
 //!POST /predict/treedecision tree (Chapter 5)
 //!POST /predict/forest random forest (Chapter 6)
+//!POST /predict/sentiment tweet sentiment, linear SVM (Chapter 7)
 use crate::AnyResult;
 use crate::forest::{self, SavedForest};
 use crate::logistic::{self, SavedLogisticModel};
+use crate::svm::{self, SavedSvm};
 use crate::tree::{self, SavedTree};
 use axum::{Json, Router, extract::State, http::StatusCode, routing::post};
 use ndarray::Array2;
-use serde::Serialize;
-use std::{collections::HashMap, sync::Arc};
+use serde::{Deserialize, Serialize};
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::Arc,
+};
 const ADDRESS: &str = "127.0.0.1:3000";
 /// Both models, loaded once and shared by every request.
 struct AppState {
     logistic: SavedLogisticModel,
     tree: SavedTree,
     forest: SavedForest,
+    svm: SavedSvm,
 }
 type ApiError = (StatusCode, String);
 #[derive(Serialize)]
@@ -37,6 +43,7 @@ pub fn serve() -> AnyResult<()> {
         serde_json::from_str(&std::fs::read_to_string(logistic::MODEL)?)?;
     let tree: SavedTree = serde_json::from_str(&std::fs::read_to_string(tree::MODEL)?)?;
     let forest: SavedForest = serde_json::from_str(&std::fs::read_to_string(forest::MODEL)?)?;
+    let svm = svm::load_active()?;
     println!(
         "Loaded {} (alpha {}, threshold {:.2})",
         logistic::MODEL,
@@ -57,15 +64,23 @@ pub fn serve() -> AnyResult<()> {
         forest.settings.max_features,
         forest.threshold
     );
+    println!(
+        "Loaded SVM v{} ({} words, lambda {})",
+        svm.version,
+        svm.vocab.len(),
+        svm.settings.lambda
+    );
     println!("Expects: {}", logistic.features.join(", "));
     let app = Router::new()
         .route("/predict", post(predict_logistic))
         .route("/predict/tree", post(predict_tree))
         .route("/predict/forest", post(predict_forest))
+        .route("/predict/sentiment", post(predict_sentiment))
         .with_state(Arc::new(AppState {
             logistic,
             tree,
             forest,
+            svm,
         }));
     // main() is not async, so start the async runtime here.
     tokio::runtime::Runtime::new()?.block_on(async {
@@ -146,5 +161,35 @@ async fn predict_forest(
         at_risk: probability >= model.threshold,
         path: None,
         trees_agreeing: Some(agreeing),
+    }))
+}
+#[derive(Deserialize)]
+struct SentimentRequest {
+    text: String,
+}
+#[derive(Serialize)]
+struct SentimentReply {
+    model: &'static str,
+    version: usize,
+    sentiment: String,
+    scores: BTreeMap<String, f64>,
+    /// The words in the text that pushed hardest towards the answer.
+    because_of: Vec<String>,
+}
+async fn predict_sentiment(
+    State(state): State<Arc<AppState>>,
+    Json(input): Json<SentimentRequest>,
+) -> Result<Json<SentimentReply>, ApiError> {
+    let model = &state.svm;
+    if input.text.trim().is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "text is empty\n".to_string()));
+    }
+    let (class, scores) = model.predict(&input.text);
+    Ok(Json(SentimentReply {
+        model: "svm",
+        version: model.version,
+        sentiment: model.classes[class].clone(),
+        scores: model.classes.iter().cloned().zip(scores).collect(),
+        because_of: model.top_words(&input.text, class, 5),
     }))
 }

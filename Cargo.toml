@@ -1,10 +1,11 @@
 [package]
-name = "data-wrangling"
+name = "rust-ml-step-by-step"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 axum = "0.8"
+csv = "1"
 linfa = "0.8.1"
 linfa-linear = "0.8.1"
 linfa-logistic = "0.8.1"

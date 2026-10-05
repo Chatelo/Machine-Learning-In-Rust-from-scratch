@@ -16,6 +16,15 @@
 //!cargo run --release -- forest-train(Chapter 6: random forest)
 //!cargo run --release -- forest-evaluate(Chapter 6)
 //!cargo run --release -- forest-tune(Chapter 6)
+//!cargo run --release -- text-split(Chapter 7: tweets and a linear SVM)
+//!cargo run --release -- text-vocab(Chapter 7)
+//!cargo run --release -- svm-train(Chapter 7)
+//!cargo run --release -- svm-evaluate(Chapter 7)
+//!cargo run --release -- svm-tune(Chapter 7)
+//!cargo run --release -- svm-versions(Chapter 7)
+//!cargo run --release -- svm-use(Chapter 7 (svm-use <n>))
+//!cargo run --release -- svm-heart(Chapter 7)
+
 mod data;
 mod explore;
 mod forest;
@@ -23,6 +32,8 @@ mod linear;
 mod logistic;
 mod metrics;
 mod server;
+mod svm;
+mod text;
 mod tree;
 /// Any error from any library can be returned with `?`.
 pub type AnyResult<T> = Result<T, Box<dyn std::error::Error>>;
@@ -44,10 +55,18 @@ fn main() -> AnyResult<()> {
         "forest-train" => forest::train(),
         "forest-evaluate" => forest::evaluate(),
         "forest-tune" => forest::tune(),
+        "text-split" => text::split(),
+        "text-vocab" => text::vocab(),
+        "svm-train" => svm::train(),
+        "svm-evaluate" => svm::evaluate(),
+        "svm-tune" => svm::tune(),
+        "svm-versions" => svm::versions(),
+        "svm-use" => svm::use_version(),
+        "svm-heart" => svm::heart(),
         _ => {
             eprintln!("Usage: cargo run --release -- <explore|clean|split|linear-train|linear-
 evaluate|train|evaluate|tune|serve|tree-train|tree-evaluate|tree-tune|forest-train|forest-evaluate|forest-
-tune>");
+tune|text-split|text-vocab|svm-train|svm-evaluate|svm-tune|svm-versions|svm-use|svm-heart>");
             std::process::exit(1);
         }
     }

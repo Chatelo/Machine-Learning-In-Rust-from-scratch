@@ -1,0 +1,21 @@
+{
+  "active": 2,
+  "versions": [
+    {
+      "version": 1,
+      "file": "models/svm/v1.json",
+      "trained_unix": 1791217750,
+      "lambda": 0.0001,
+      "epochs": 10,
+      "note": "default settings"
+    },
+    {
+      "version": 2,
+      "file": "models/svm/v2.json",
+      "trained_unix": 1791217816,
+      "lambda": 0.00001,
+      "epochs": 10,
+      "note": "tuned: 5-fold macro F1 0.794"
+    }
+  ]
+}
