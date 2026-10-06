@@ -1,14 +1,12 @@
 //! Scoring a list of probabilities against the real answers.
 //! Works for any model that produces probabilities.
 /// Counts of the four possible outcomes at one threshold.
-
 pub struct Confusion {
-    pub tp: usize,   // Said yes, was yes
-    pub fp: usize,   // Said yes, was no
-    pub tn: usize,   // Said no, was no
-    pub fneg: usize, // Said no, was yes
+    pub tp: usize,   // said yes, was yes
+    pub fp: usize,   // said yes, was no
+    pub tn: usize,   // said no, was no
+    pub fneg: usize, // said no, was yes
 }
-
 impl Confusion {
     pub fn new(threshold: f64, probs: &[f64], actual: &[bool]) -> Self {
         let mut c = Confusion {
@@ -27,11 +25,9 @@ impl Confusion {
         }
         c
     }
-
     pub fn accuracy(&self) -> f64 {
         (self.tp + self.tn) as f64 / (self.tp + self.fp + self.tn + self.fneg) as f64
     }
-
     pub fn precision(&self) -> f64 {
         if self.tp + self.fp == 0 {
             0.0
@@ -39,7 +35,6 @@ impl Confusion {
             self.tp as f64 / (self.tp + self.fp) as f64
         }
     }
-
     pub fn recall(&self) -> f64 {
         if self.tp + self.fneg == 0 {
             0.0
@@ -47,7 +42,6 @@ impl Confusion {
             self.tp as f64 / (self.tp + self.fneg) as f64
         }
     }
-
     pub fn f1(&self) -> f64 {
         let (p, r) = (self.precision(), self.recall());
         if p + r == 0.0 {
@@ -57,22 +51,26 @@ impl Confusion {
         }
     }
 }
-
 pub fn report(threshold: f64, probs: &[f64], actual: &[bool]) {
     let c = Confusion::new(threshold, probs, actual);
     println!("\n--- Threshold {threshold:.2} ---");
-    println!("Accuracy: {:.2}%", c.accuracy() * 100.0);
+    println!(
+        "Accuracy:
+{:.2}%",
+        c.accuracy() * 100.0
+    );
     println!("Precision: {:.2}%", c.precision() * 100.0);
     println!("Recall:{:.2}%", c.recall() * 100.0);
     println!("F1:{:.3}", c.f1());
-    println!("Predicted 0 Predicted 1");
+    println!(
+        "Predicted 0
+Predicted 1"
+    );
     println!("Actual 0{:>11}{:>11}", c.tn, c.fp);
     println!("Actual 1{:>11}{:>11}", c.fneg, c.tp);
 }
-
 /// Chance that a random class-1 person gets a higher score
 /// than a random class-0 person. 0.5 = guessing, 1.0 = perfect.
-
 pub fn auc(probs: &[f64], actual: &[bool]) -> f64 {
     let pos: Vec<f64> = probs
         .iter()
@@ -86,16 +84,56 @@ pub fn auc(probs: &[f64], actual: &[bool]) -> f64 {
         .filter(|(_, a)| !**a)
         .map(|(p, _)| *p)
         .collect();
-
     let mut wins = 0.0;
     for p in &pos {
         for n in &neg {
             if p > n {
                 wins += 1.0;
             } else if p == n {
-                wins += 0.5
+                wins += 0.5;
             }
         }
     }
     wins / (pos.len() * neg.len()) as f64
+}
+/// The cut-off between 0.05 and 0.50 with the best F1.
+pub fn best_threshold(probs: &[f64], actual: &[bool]) -> (f64, f64) {
+    (1..=10)
+        .map(|i| i as f64 * 5.0 / 100.0)
+        .map(|t| (t, Confusion::new(t, probs, actual).f1()))
+        .fold(
+            (0.0, -1.0),
+            |acc, cur| if cur.1 > acc.1 { cur } else { acc },
+        )
+}
+/// Do the probabilities mean what they say? Group people by predicted
+/// risk and compare the average prediction with what actually happened.
+pub fn calibration(probs: &[f64], actual: &[bool]) {
+    let edges = [0.0, 0.1, 0.2, 0.5, 0.9, 1.01];
+    println!(
+        "{:>11} {:>7} {:>10} {:>9}",
+        "predicted", "people", "said", "happened"
+    );
+    for w in edges.windows(2) {
+        let (lo, hi) = (w[0], w[1]);
+        let group: Vec<(f64, bool)> = probs
+            .iter()
+            .zip(actual)
+            .filter(|(p, _)| **p >= lo && **p < hi)
+            .map(|(p, a)| (*p, *a))
+            .collect();
+        if group.is_empty() {
+            continue;
+        }
+        let n = group.len() as f64;
+        let said = group.iter().map(|(p, _)| p).sum::<f64>() / n;
+        let happened = group.iter().filter(|(_, a)| *a).count() as f64 / n;
+        let label = format!("{:.0}–{:.0}%", lo * 100.0, (hi.min(1.0)) * 100.0);
+        println!(
+            "{label:>11} {:>7} {:>9.1}% {:>8.1}%",
+            group.len(),
+            said * 100.0,
+            happened * 100.0
+        );
+    }
 }

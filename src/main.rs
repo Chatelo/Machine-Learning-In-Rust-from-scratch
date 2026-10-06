@@ -24,10 +24,15 @@
 //!cargo run --release -- svm-versions(Chapter 7)
 //!cargo run --release -- svm-use(Chapter 7 (svm-use <n>))
 //!cargo run --release -- svm-heart(Chapter 7)
-
+//!cargo run --release -- nb-heart(Chapter 8: Naive Bayes and k-NN)
+//!cargo run --release -- nb-tweets(Chapter 8)
+//!cargo run --release -- knn-tune(Chapter 8)
+//!cargo run --release -- knn-evaluate(Chapter 8)
+mod bayes;
 mod data;
 mod explore;
 mod forest;
+mod knn;
 mod linear;
 mod logistic;
 mod metrics;
@@ -63,10 +68,15 @@ fn main() -> AnyResult<()> {
         "svm-versions" => svm::versions(),
         "svm-use" => svm::use_version(),
         "svm-heart" => svm::heart(),
+        "nb-heart" => bayes::heart(),
+        "nb-tweets" => bayes::tweets(),
+        "knn-tune" => knn::tune(),
+        "knn-evaluate" => knn::evaluate(),
         _ => {
             eprintln!("Usage: cargo run --release -- <explore|clean|split|linear-train|linear-
 evaluate|train|evaluate|tune|serve|tree-train|tree-evaluate|tree-tune|forest-train|forest-evaluate|forest-
-tune|text-split|text-vocab|svm-train|svm-evaluate|svm-tune|svm-versions|svm-use|svm-heart>");
+tune|text-split|text-vocab|svm-train|svm-evaluate|svm-tune|svm-versions|svm-use|svm-heart|nb-heart|nb-
+tweets|knn-tune|knn-evaluate>");
             std::process::exit(1);
         }
     }

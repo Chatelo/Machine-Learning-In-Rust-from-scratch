@@ -3,29 +3,22 @@
 //! Load the Coronavirus tweets, merge five sentiment labels into three,
 //! split them fairly, break each tweet into words, and weight the words
 //! with TF-IDF so a model can use them.
-
+use crate::AnyResult;
+use crate::data::{FOLDS, SEED, TEST_SHARE};
 use rand::{SeedableRng, rngs::StdRng, seq::SliceRandom};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-
-use crate::AnyResult;
-use crate::data::{FOLDS, SEED, TEST_SHARE};
-
 pub const RAW: &str = "data/Corona_NLP_train.csv";
 pub const TRAIN: &str = "data/tweets_train.csv";
 pub const TEST: &str = "data/tweets_test.csv";
-
 pub const CLASSES: [&str; 3] = ["Negative", "Neutral", "Positive"];
-
 /// A word must appear in at least this many training tweets to be kept.
 const MIN_DOCS: usize = 2;
-
 #[derive(Serialize, Deserialize)]
 pub struct Tweet {
     pub text: String,
     pub label: usize, // index into CLASSES
 }
-
 // ---------- loading ----------
 /// "Extremely Positive" becomes "Positive", and so on.
 fn label_index(sentiment: &str) -> Option<usize> {
@@ -36,7 +29,6 @@ fn label_index(sentiment: &str) -> Option<usize> {
         _ => None,
     }
 }
-
 pub fn load_raw() -> AnyResult<Vec<Tweet>> {
     let mut reader = csv::Reader::from_path(RAW)?;
     let headers = reader.byte_headers()?.clone();
@@ -72,7 +64,6 @@ pub fn load_raw() -> AnyResult<Vec<Tweet>> {
     );
     Ok(tweets)
 }
-
 pub fn load(path: &str) -> AnyResult<Vec<Tweet>> {
     let mut reader = csv::Reader::from_path(path)?;
     let tweets: Result<Vec<Tweet>, _> = reader.deserialize().collect();
@@ -86,7 +77,6 @@ fn save(path: &str, tweets: &[&Tweet]) -> AnyResult<()> {
     writer.flush()?;
     Ok(())
 }
-
 pub fn print_balance(label: &str, tweets: &[Tweet]) {
     let mut counts = [0usize; 3];
     for t in tweets {
@@ -100,7 +90,6 @@ pub fn print_balance(label: &str, tweets: &[Tweet]) {
         .collect();
     println!("{label}: {} | {}", tweets.len(), parts.join(" | "));
 }
-
 /// Shuffle each class separately and keep 20% of each for testing.
 pub fn split() -> AnyResult<()> {
     let tweets = load_raw()?;
@@ -118,14 +107,16 @@ pub fn split() -> AnyResult<()> {
     test.shuffle(&mut rng);
     save(TRAIN, &train)?;
     save(TEST, &test)?;
-    print_balance("All", &tweets);
+    print_balance(
+        "All
+", &tweets,
+    );
     print_balance("Train", &load(TRAIN)?);
     print_balance("Test ", &load(TEST)?);
     println!("Saved: {TRAIN}");
     println!("Saved: {TEST}");
     Ok(())
 }
-
 /// Give every tweet a fold number 0..FOLDS, class by class.
 pub fn assign_folds(tweets: &[Tweet]) -> Vec<usize> {
     let mut rng = StdRng::seed_from_u64(SEED);
@@ -141,7 +132,6 @@ pub fn assign_folds(tweets: &[Tweet]) -> Vec<usize> {
     }
     fold_of
 }
-
 // ---------- words ----------
 /// Lower-case, drop links and @usernames, keep runs of letters, digits and '.
 pub fn tokenize(text: &str) -> Vec<String> {
@@ -156,7 +146,6 @@ pub fn tokenize(text: &str) -> Vec<String> {
         .filter(|w| w.chars().count() >= 2)
         .collect()
 }
-
 /// A sparse vector: only the words that appear, as (word index, weight).
 pub type Sparse = Vec<(usize, f64)>;
 /// The word list and each word's IDF weight, learned from training tweets only.
@@ -167,7 +156,6 @@ pub struct Vocabulary {
     #[serde(skip)]
     index: HashMap<String, usize>,
 }
-
 impl Vocabulary {
     pub fn fit(texts: &[&str]) -> Self {
         // In how many tweets does each word appear?
@@ -212,6 +200,18 @@ impl Vocabulary {
     pub fn len(&self) -> usize {
         self.words.len()
     }
+    /// Raw word counts for one text (what Naive Bayes needs).
+    pub fn counts(&self, text: &str) -> Sparse {
+        let mut counts: HashMap<usize, f64> = HashMap::new();
+        for word in tokenize(text) {
+            if let Some(&i) = self.index.get(&word) {
+                *counts.entry(i).or_insert(0.0) += 1.0;
+            }
+        }
+        let mut vector: Sparse = counts.into_iter().collect();
+        vector.sort_by_key(|&(i, _)| i);
+        vector
+    }
     /// TF-IDF vector for one text, scaled to length 1.
     pub fn transform(&self, text: &str) -> Sparse {
         let mut counts: HashMap<usize, f64> = HashMap::new();
@@ -234,9 +234,7 @@ impl Vocabulary {
         vector
     }
 }
-
 // ---------- stage: look at the vocabulary ----------
-
 pub fn vocab() -> AnyResult<()> {
     let train = load(TRAIN)?;
     let texts: Vec<&str> = train.iter().map(|t| t.text.as_str()).collect();

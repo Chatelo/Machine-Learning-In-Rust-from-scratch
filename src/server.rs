@@ -4,8 +4,10 @@
 //!POST /predict/treedecision tree (Chapter 5)
 //!POST /predict/forest random forest (Chapter 6)
 //!POST /predict/sentiment tweet sentiment, linear SVM (Chapter 7)
+//!POST /predict/knn k-nearest neighbours, with the most similar patients (Chapter 8)
 use crate::AnyResult;
 use crate::forest::{self, SavedForest};
+use crate::knn::{self, SavedKnn};
 use crate::logistic::{self, SavedLogisticModel};
 use crate::svm::{self, SavedSvm};
 use crate::tree::{self, SavedTree};
@@ -23,6 +25,7 @@ struct AppState {
     tree: SavedTree,
     forest: SavedForest,
     svm: SavedSvm,
+    knn: SavedKnn,
 }
 type ApiError = (StatusCode, String);
 #[derive(Serialize)]
@@ -44,6 +47,7 @@ pub fn serve() -> AnyResult<()> {
     let tree: SavedTree = serde_json::from_str(&std::fs::read_to_string(tree::MODEL)?)?;
     let forest: SavedForest = serde_json::from_str(&std::fs::read_to_string(forest::MODEL)?)?;
     let svm = svm::load_active()?;
+    let knn: SavedKnn = serde_json::from_str(&std::fs::read_to_string(knn::MODEL)?)?;
     println!(
         "Loaded {} (alpha {}, threshold {:.2})",
         logistic::MODEL,
@@ -70,17 +74,25 @@ pub fn serve() -> AnyResult<()> {
         svm.vocab.len(),
         svm.settings.lambda
     );
+    println!(
+        "Loaded {} (k {}, {} stored patients)",
+        knn::MODEL,
+        knn.k,
+        knn.rows.len()
+    );
     println!("Expects: {}", logistic.features.join(", "));
     let app = Router::new()
         .route("/predict", post(predict_logistic))
         .route("/predict/tree", post(predict_tree))
         .route("/predict/forest", post(predict_forest))
         .route("/predict/sentiment", post(predict_sentiment))
+        .route("/predict/knn", post(predict_knn))
         .with_state(Arc::new(AppState {
             logistic,
             tree,
             forest,
             svm,
+            knn,
         }));
     // main() is not async, so start the async runtime here.
     tokio::runtime::Runtime::new()?.block_on(async {
@@ -191,5 +203,53 @@ async fn predict_sentiment(
         sentiment: model.classes[class].clone(),
         scores: model.classes.iter().cloned().zip(scores).collect(),
         because_of: model.top_words(&input.text, class, 5),
+    }))
+}
+/// One of the most similar training patients, shown by a few key features.
+#[derive(Serialize)]
+struct Neighbour {
+    distance: f64,
+    features: BTreeMap<String, f64>,
+    developed_chd: bool,
+}
+#[derive(Serialize)]
+struct KnnReply {
+    model: &'static str,
+    probability: f64,
+    threshold: f64,
+    at_risk: bool,
+    k: usize,
+    closest: Vec<Neighbour>,
+}
+const SHOWN: [&str; 5] = ["age", "male", "sysBP", "totChol", "cigsPerDay"];
+async fn predict_knn(
+    State(state): State<Arc<AppState>>,
+    Json(input): Json<HashMap<String, f64>>,
+) -> Result<Json<KnnReply>, ApiError> {
+    let model = &state.knn;
+    let row = read_row(&model.features, &input)?;
+    let (probability, neighbours) = model.predict(&[row]).remove(0);
+    let closest = neighbours
+        .iter()
+        .take(5)
+        .map(|&(i, distance)| Neighbour {
+            distance,
+            features: model
+                .features
+                .iter()
+                .zip(&model.rows[i])
+                .filter(|(name, _)| SHOWN.contains(&name.as_str()))
+                .map(|(name, v)| (name.clone(), *v))
+                .collect(),
+            developed_chd: model.labels[i],
+        })
+        .collect();
+    Ok(Json(KnnReply {
+        model: "knn",
+        probability,
+        threshold: model.threshold,
+        at_risk: probability >= model.threshold,
+        k: model.k,
+        closest,
     }))
 }
