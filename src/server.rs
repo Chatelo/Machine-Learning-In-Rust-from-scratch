@@ -5,9 +5,11 @@
 //!POST /predict/forest random forest (Chapter 6)
 //!POST /predict/sentiment
 //!POST /predict/knnk-nearest neighbours, with the most similar patients (Chapter 8)
-//!POST /predict/nnneural network (Chapter 9) tweet sentiment, linear SVM (Chapter 7)
+//!POST /predict/nnneural network (Chapter 9)
+//!POST /generatetiny GPT writes Shakespeare-style text (Chapter 10) tweet sentiment, linear SVM (Chapter 7)
 use crate::AnyResult;
 use crate::forest::{self, SavedForest};
+use crate::gpt::{self, SavedGpt};
 use crate::knn::{self, SavedKnn};
 use crate::logistic::{self, SavedLogisticModel};
 use crate::nn::{self, SavedHeartNet};
@@ -29,6 +31,7 @@ struct AppState {
     svm: SavedSvm,
     knn: SavedKnn,
     nn: SavedHeartNet,
+    gpt: SavedGpt,
 }
 type ApiError = (StatusCode, String);
 #[derive(Serialize)]
@@ -52,6 +55,7 @@ pub fn serve() -> AnyResult<()> {
     let svm = svm::load_active()?;
     let knn: SavedKnn = serde_json::from_str(&std::fs::read_to_string(knn::MODEL)?)?;
     let nn: SavedHeartNet = serde_json::from_str(&std::fs::read_to_string(nn::HEART_MODEL)?)?;
+    let gpt: SavedGpt = serde_json::from_str(&std::fs::read_to_string(gpt::MODEL)?)?;
     println!(
         "Loaded {} (alpha {}, threshold {:.2})",
         logistic::MODEL,
@@ -90,6 +94,12 @@ pub fn serve() -> AnyResult<()> {
         nn.net.layers[0].b.len(),
         nn.threshold
     );
+    println!(
+        "Loaded {} ({} layers, {} parameters)",
+        gpt::MODEL,
+        gpt.model.config.layers,
+        gpt.model.n_params()
+    );
     println!("Expects: {}", logistic.features.join(", "));
     let app = Router::new()
         .route("/predict", post(predict_logistic))
@@ -98,6 +108,7 @@ pub fn serve() -> AnyResult<()> {
         .route("/predict/sentiment", post(predict_sentiment))
         .route("/predict/knn", post(predict_knn))
         .route("/predict/nn", post(predict_nn))
+        .route("/generate", post(generate_text))
         .with_state(Arc::new(AppState {
             logistic,
             tree,
@@ -105,6 +116,7 @@ pub fn serve() -> AnyResult<()> {
             svm,
             knn,
             nn,
+            gpt,
         }));
     // main() is not async, so start the async runtime here.
     tokio::runtime::Runtime::new()?.block_on(async {
@@ -282,4 +294,57 @@ async fn predict_nn(
         path: None,
         trees_agreeing: None,
     }))
+}
+#[derive(Deserialize)]
+struct GenerateRequest {
+    prompt: String,
+    #[serde(default = "default_length")]
+    length: usize,
+    #[serde(default = "default_temperature")]
+    temperature: f64,
+    #[serde(default)]
+    seed: u64,
+}
+fn default_length() -> usize {
+    200
+}
+fn default_temperature() -> f64 {
+    0.8
+}
+#[derive(Serialize)]
+struct GenerateReply {
+    model: &'static str,
+    text: String,
+}
+async fn generate_text(
+    State(state): State<Arc<AppState>>,
+    Json(input): Json<GenerateRequest>,
+) -> Result<Json<GenerateReply>, ApiError> {
+    if input.length == 0 || input.length > 1000 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "length must be between 1 and 1000\n".to_string(),
+        ));
+    }
+    if !(input.temperature > 0.0 && input.temperature <= 2.0) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "temperature must be above 0 and at most 2\n".to_string(),
+        ));
+    }
+    // Generating is slow compared with a single prediction, so run it off the async threads.
+    let state = state.clone();
+    let text = tokio::task::spawn_blocking(move || {
+        gpt::generate(
+            &state.gpt.model,
+            &state.gpt.tokenizer,
+            &input.prompt,
+            input.length,
+            input.temperature,
+            input.seed,
+        )
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    Ok(Json(GenerateReply { model: "gpt", text }))
 }
