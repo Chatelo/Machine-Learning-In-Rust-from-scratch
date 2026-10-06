@@ -1,58 +1,46 @@
 # Machine Learning in Rust from Scratch
 
-A chapter-by-chapter machine learning project using the Framingham heart study dataset, tweet text, and Shakespeare text. This chapter implements Chapter 10: a tiny GPT written from scratch.
+A chapter-by-chapter machine learning project using the Framingham heart study dataset, tweet text, Shakespeare text, and a real open-weight language model. This chapter implements Chapter 11: a Llama-style SmolLM2 model loaded and adapted with Candle.
 
-## Chapter 10 — A tiny GPT, written from scratch
+## Chapter 11 — A real open model with Candle
 
-This chapter builds a character-level transformer using the same ingredients as modern language models: token embeddings, positional embeddings, causal self-attention, MLP blocks, residual connections, and a softmax output head. It learns to predict the next character in a text stream, starting from Shakespeare.
+This chapter swaps the tiny hand-written GPT from Chapter 10 for a real pretrained model: SmolLM2-135M, loaded from Hugging Face weights and run with Candle in Rust. The goal is not to rebuild every detail from first principles, but to show how an open model is loaded, compared against its reference implementation, and then tuned on Shakespeare.
 
-### Inspect the dataset
-
-```bash
-cargo run --release -- gpt-data
-```
-
-This stage loads the text, builds the character vocabulary, splits the corpus into training and held-back validation data, and reports the baseline losses from a uniform guess and from a simple bigram model.
-
-![Chapter 10 dataset output](assets/Chapter10-1.png)
-
-### Gradient check the backpropagation
+### Check the model against Candle's reference
 
 ```bash
-cargo run --release -- gpt-check
+cargo run --release -- llm-check
 ```
 
-This stage runs a numerical finite-difference check on a tiny model to verify that the hand-written backward pass matches the true gradient.
+This stage loads the pretrained model, inspects the vocabulary and tokenization, checks our implementation against Candle's own Llama forward pass, and confirms the key/value cache produces the same logits as a full recomputation.
 
-![Chapter 10 gradient check output](assets/Chapter10-2.png)
-
-### Train the tiny GPT
+### Write text from the pretrained model
 
 ```bash
-cargo run --release -- gpt-train
+cargo run --release -- llm-write "ROMEO:\n" 100 0.8
 ```
 
-This stage trains a small transformer on Shakespeare text for a fixed number of steps, prints train and validation losses over time, and then samples a little Shakespeare-like continuation from a prompt.
-
-![Chapter 10 training output](assets/Chapter10-3.png)
-
-### Write new text
+This stage writes new text from the original pretrained model. The optional final argument `tuned` swaps in the Shakespeare-fine-tuned checkpoint instead of the base model.
 
 ```bash
-cargo run --release -- gpt-write "ROMEO:\n" 300 0.8
+cargo run --release -- llm-write "ROMEO:\n" 100 0.8 tuned
 ```
 
-This generation stage loads the saved model, samples new characters from a prompt, and prints the resulting text at a chosen temperature.
-
-![Chapter 10 generation output](assets/Chapter10-4.png)
-
-### Inspect attention heads
+### Score the model on held-back Shakespeare
 
 ```bash
-cargo run --release -- gpt-attend "KING HENRY:\nWhat says the king?"
+cargo run --release -- llm-score
 ```
 
-This optional debugging mode shows which earlier characters each attention head was focusing on when predicting the next character.
+This stage compares the tiny GPT from Chapter 10 against the original and tuned SmolLM2 checkpoints on the same held-back Shakespeare text, reporting loss per character.
+
+### Keep training the model on Shakespeare
+
+```bash
+cargo run --release -- llm-train
+```
+
+This stage loads the pretrained model, freezes most of the layers, trains only the top layers and final norm on the training split of Shakespeare, and saves the tuned model to `models/smollm2-shakespeare.safetensors`.
 
 ## Earlier chapters
 
@@ -65,14 +53,17 @@ This optional debugging mode shows which earlier characters each attention head 
 - Chapter 7: text preprocessing, SVMs, and tweet sentiment — [07-text-svm](https://github.com/Chatelo/Machine-Learning-In-Rust-from-scratch/tree/07-text-svm)
 - Chapter 8: Naive Bayes and k-nearest neighbours — [08-naive-bayes-knn](https://github.com/Chatelo/Machine-Learning-In-Rust-from-scratch/tree/08-naive-bayes-knn)
 - Chapter 9: neural networks — [09-neural-networks](https://github.com/Chatelo/Machine-Learning-In-Rust-from-scratch/tree/09-neural-networks)
-- Current chapter: Chapter 10 — tiny GPT
+- Chapter 10: tiny GPT — [10-tiny-gpt](https://github.com/Chatelo/Machine-Learning-In-Rust-from-scratch/tree/10-tiny-gpt)
+- Current chapter: Chapter 11 — SmolLM2 with Candle
 
 ## Project files
 
-- [src/main.rs](src/main.rs) — stage selector for the chapter commands, including `gpt-data`, `gpt-check`, `gpt-train`, `gpt-write`, and `gpt-attend`
-- [src/gpt.rs](src/gpt.rs) — tokenizer, transformer blocks, training loop, generation, and attention inspection
-- [src/data.rs](src/data.rs) — shared loading and helpers for the book datasets
-- [src/text.rs](src/text.rs) — tokenization helpers for the text datasets
-- [data/shakespeare.txt](data/shakespeare.txt) — training text for the character-level transformer
+- [src/main.rs](src/main.rs) — stage selector for the chapter commands, including `llm-check`, `llm-write`, `llm-score`, and `llm-train`
+- [src/llm.rs](src/llm.rs) — Candle model loader, RoPE attention, KV cache, and continued training loop
+- [src/gpt.rs](src/gpt.rs) — Chapter 10 tiny GPT reference implementation used for comparison
+- [src/server.rs](src/server.rs) — HTTP endpoint for generating text with the tuned LLM
+- [models/smollm2-135m](models/smollm2-135m) — pretrained model files, tokenizer, and config
+- [models/smollm2-shakespeare.safetensors](models/smollm2-shakespeare.safetensors) — Shakespeare-tuned weights
+- [data/shakespeare.txt](data/shakespeare.txt) — text used for the continued training and evaluation
 
 The first build may take a few minutes while Cargo compiles dependencies; later runs are much faster.
