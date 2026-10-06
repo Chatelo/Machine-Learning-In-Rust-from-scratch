@@ -3,12 +3,14 @@
 //!POST /predictlogistic regression (Chapter 4)
 //!POST /predict/treedecision tree (Chapter 5)
 //!POST /predict/forest random forest (Chapter 6)
-//!POST /predict/sentiment tweet sentiment, linear SVM (Chapter 7)
-//!POST /predict/knn k-nearest neighbours, with the most similar patients (Chapter 8)
+//!POST /predict/sentiment
+//!POST /predict/knnk-nearest neighbours, with the most similar patients (Chapter 8)
+//!POST /predict/nnneural network (Chapter 9) tweet sentiment, linear SVM (Chapter 7)
 use crate::AnyResult;
 use crate::forest::{self, SavedForest};
 use crate::knn::{self, SavedKnn};
 use crate::logistic::{self, SavedLogisticModel};
+use crate::nn::{self, SavedHeartNet};
 use crate::svm::{self, SavedSvm};
 use crate::tree::{self, SavedTree};
 use axum::{Json, Router, extract::State, http::StatusCode, routing::post};
@@ -26,6 +28,7 @@ struct AppState {
     forest: SavedForest,
     svm: SavedSvm,
     knn: SavedKnn,
+    nn: SavedHeartNet,
 }
 type ApiError = (StatusCode, String);
 #[derive(Serialize)]
@@ -48,6 +51,7 @@ pub fn serve() -> AnyResult<()> {
     let forest: SavedForest = serde_json::from_str(&std::fs::read_to_string(forest::MODEL)?)?;
     let svm = svm::load_active()?;
     let knn: SavedKnn = serde_json::from_str(&std::fs::read_to_string(knn::MODEL)?)?;
+    let nn: SavedHeartNet = serde_json::from_str(&std::fs::read_to_string(nn::HEART_MODEL)?)?;
     println!(
         "Loaded {} (alpha {}, threshold {:.2})",
         logistic::MODEL,
@@ -80,6 +84,12 @@ pub fn serve() -> AnyResult<()> {
         knn.k,
         knn.rows.len()
     );
+    println!(
+        "Loaded {} ({} hidden units, threshold {:.2})",
+        nn::HEART_MODEL,
+        nn.net.layers[0].b.len(),
+        nn.threshold
+    );
     println!("Expects: {}", logistic.features.join(", "));
     let app = Router::new()
         .route("/predict", post(predict_logistic))
@@ -87,12 +97,14 @@ pub fn serve() -> AnyResult<()> {
         .route("/predict/forest", post(predict_forest))
         .route("/predict/sentiment", post(predict_sentiment))
         .route("/predict/knn", post(predict_knn))
+        .route("/predict/nn", post(predict_nn))
         .with_state(Arc::new(AppState {
             logistic,
             tree,
             forest,
             svm,
             knn,
+            nn,
         }));
     // main() is not async, so start the async runtime here.
     tokio::runtime::Runtime::new()?.block_on(async {
@@ -251,5 +263,23 @@ async fn predict_knn(
         at_risk: probability >= model.threshold,
         k: model.k,
         closest,
+    }))
+}
+async fn predict_nn(
+    State(state): State<Arc<AppState>>,
+    Json(input): Json<HashMap<String, f64>>,
+) -> Result<Json<Prediction>, ApiError> {
+    let model = &state.nn;
+    let row = read_row(&model.features, &input)?;
+    let x = Array2::from_shape_vec((1, row.len()), row)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let probability = model.probs(&x)[0];
+    Ok(Json(Prediction {
+        model: "nn",
+        probability,
+        threshold: model.threshold,
+        at_risk: probability >= model.threshold,
+        path: None,
+        trees_agreeing: None,
     }))
 }

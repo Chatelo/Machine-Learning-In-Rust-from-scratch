@@ -28,6 +28,10 @@
 //!cargo run --release -- nb-tweets(Chapter 8)
 //!cargo run --release -- knn-tune(Chapter 8)
 //!cargo run --release -- knn-evaluate(Chapter 8)
+//!cargo run --release -- nn-xor(Chapter 9: neural networks)
+//!cargo run --release -- nn-heart(Chapter 9)
+//!cargo run --release -- nn-digits(Chapter 9)
+//!cargo run --release -- nn-show(Chapter 9 (nn-show <n>))
 mod bayes;
 mod data;
 mod explore;
@@ -36,6 +40,7 @@ mod knn;
 mod linear;
 mod logistic;
 mod metrics;
+mod nn;
 mod server;
 mod svm;
 mod text;
@@ -72,11 +77,15 @@ fn main() -> AnyResult<()> {
         "nb-tweets" => bayes::tweets(),
         "knn-tune" => knn::tune(),
         "knn-evaluate" => knn::evaluate(),
+        "nn-xor" => nn::xor(),
+        "nn-heart" => nn::heart(),
+        "nn-digits" => nn::digits(),
+        "nn-show" => nn::show(),
         _ => {
             eprintln!("Usage: cargo run --release -- <explore|clean|split|linear-train|linear-
 evaluate|train|evaluate|tune|serve|tree-train|tree-evaluate|tree-tune|forest-train|forest-evaluate|forest-
 tune|text-split|text-vocab|svm-train|svm-evaluate|svm-tune|svm-versions|svm-use|svm-heart|nb-heart|nb-
-tweets|knn-tune|knn-evaluate>");
+tweets|knn-tune|knn-evaluate|nn-xor|nn-heart|nn-digits|nn-show>");
             std::process::exit(1);
         }
     }
