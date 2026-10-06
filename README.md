@@ -1,50 +1,58 @@
 # Machine Learning in Rust from Scratch
 
-A chapter-by-chapter machine learning project using the Framingham heart study dataset and a tweet sentiment dataset. This chapter implements Chapter 8: Naive Bayes and k-nearest neighbours.
+A chapter-by-chapter machine learning project using the Framingham heart study dataset, tweet text, and Shakespeare text. This chapter implements Chapter 10: a tiny GPT written from scratch.
 
-## Chapter 8 — Naive Bayes and k-nearest neighbours
+## Chapter 10 — A tiny GPT, written from scratch
 
-This chapter adds two different ways to classify patients and tweet sentiment without needing a deep neural network.
+This chapter builds a character-level transformer using the same ingredients as modern language models: token embeddings, positional embeddings, causal self-attention, MLP blocks, residual connections, and a softmax output head. It learns to predict the next character in a text stream, starting from Shakespeare.
 
-- Gaussian Naive Bayes models the heart-disease features as bell curves and estimates the probability that a patient belongs to each class.
-- Multinomial Naive Bayes counts word occurrences in tweets and uses the word frequencies to estimate sentiment probabilities.
-- k-nearest neighbours keeps the training rows and classifies a new patient by the majority label among the most similar cases.
-
-### Gaussian Naive Bayes on the heart data
+### Inspect the dataset
 
 ```bash
-cargo run --release -- nb-heart
+cargo run --release -- gpt-data
 ```
 
-This stage fits a Naive Bayes model on the Framingham training data, evaluates it with out-of-fold validation, checks calibration, and saves the final model to `nb_model.json`.
+This stage loads the text, builds the character vocabulary, splits the corpus into training and held-back validation data, and reports the baseline losses from a uniform guess and from a simple bigram model.
 
-![Chapter 8 Gaussian Naive Bayes output](assets/chapter8-1.png)
+![Chapter 10 dataset output](assets/Chapter10-1.png)
 
-### Multinomial Naive Bayes on the tweets
+### Gradient check the backpropagation
 
 ```bash
-cargo run --release -- nb-tweets
+cargo run --release -- gpt-check
 ```
 
-This stage trains a word-count Naive Bayes classifier over the tweet dataset, compares a few smoothing strengths, and reports accuracy and macro-F1 on the held-out test set.
+This stage runs a numerical finite-difference check on a tiny model to verify that the hand-written backward pass matches the true gradient.
 
-![Chapter 8 Multinomial Naive Bayes output](assets/chapter8-2.png)
+![Chapter 10 gradient check output](assets/Chapter10-2.png)
 
-### k-nearest neighbours on the heart data
+### Train the tiny GPT
 
 ```bash
-cargo run --release -- knn-tune
+cargo run --release -- gpt-train
 ```
 
-This stage tries several values of `k`, compares scaled and unscaled distance models, chooses the best threshold by F1, and saves the final model to `knn_model.json`.
+This stage trains a small transformer on Shakespeare text for a fixed number of steps, prints train and validation losses over time, and then samples a little Shakespeare-like continuation from a prompt.
+
+![Chapter 10 training output](assets/Chapter10-3.png)
+
+### Write new text
 
 ```bash
-cargo run --release -- knn-evaluate
+cargo run --release -- gpt-write "ROMEO:\n" 300 0.8
 ```
 
-The evaluation stage loads the saved k-NN model, scores it on the test set, and prints AUC and classification metrics.
+This generation stage loads the saved model, samples new characters from a prompt, and prints the resulting text at a chosen temperature.
 
-![Chapter 8 k-nearest neighbours output](assets/chapter8-3.png)
+![Chapter 10 generation output](assets/Chapter10-4.png)
+
+### Inspect attention heads
+
+```bash
+cargo run --release -- gpt-attend "KING HENRY:\nWhat says the king?"
+```
+
+This optional debugging mode shows which earlier characters each attention head was focusing on when predicting the next character.
 
 ## Earlier chapters
 
@@ -55,19 +63,16 @@ The evaluation stage loads the saved k-NN model, scores it on the test set, and 
 - Chapter 5: decision tree, tuning, and explainable prediction — [05-decision-trees](https://github.com/Chatelo/Machine-Learning-In-Rust-from-scratch/tree/05-decision-trees)
 - Chapter 6: random forest, OOB tuning, and POST /predict/forest — [06-random-forest](https://github.com/Chatelo/Machine-Learning-In-Rust-from-scratch/tree/06-random-forest)
 - Chapter 7: text preprocessing, SVMs, and tweet sentiment — [07-text-svm](https://github.com/Chatelo/Machine-Learning-In-Rust-from-scratch/tree/07-text-svm)
-- Current chapter: Chapter 8 — Naive Bayes and k-NN
+- Chapter 8: Naive Bayes and k-nearest neighbours — [08-naive-bayes-knn](https://github.com/Chatelo/Machine-Learning-In-Rust-from-scratch/tree/08-naive-bayes-knn)
+- Chapter 9: neural networks — [09-neural-networks](https://github.com/Chatelo/Machine-Learning-In-Rust-from-scratch/tree/09-neural-networks)
+- Current chapter: Chapter 10 — tiny GPT
 
 ## Project files
 
-- [src/main.rs](src/main.rs) — stage selector for the chapter commands, including `nb-heart`, `nb-tweets`, `knn-tune`, and `knn-evaluate`
-- [src/bayes.rs](src/bayes.rs) — Gaussian and multinomial Naive Bayes implementations
-- [src/knn.rs](src/knn.rs) — k-nearest neighbours tuning and evaluation
-- [src/text.rs](src/text.rs) — vocabulary and tweet preprocessing
-- [src/data.rs](src/data.rs) — shared loading, cleaning, splitting, and cross-validation helpers
-- [src/metrics.rs](src/metrics.rs) — performance metrics and threshold tuning
-- [data/framingham_train.csv](data/framingham_train.csv) — heart-data training split
-- [data/framingham_test.csv](data/framingham_test.csv) — heart-data test split
-- [data/tweets_train.csv](data/tweets_train.csv) — tweet training data
-- [data/tweets_test.csv](data/tweets_test.csv) — tweet test data
+- [src/main.rs](src/main.rs) — stage selector for the chapter commands, including `gpt-data`, `gpt-check`, `gpt-train`, `gpt-write`, and `gpt-attend`
+- [src/gpt.rs](src/gpt.rs) — tokenizer, transformer blocks, training loop, generation, and attention inspection
+- [src/data.rs](src/data.rs) — shared loading and helpers for the book datasets
+- [src/text.rs](src/text.rs) — tokenization helpers for the text datasets
+- [data/shakespeare.txt](data/shakespeare.txt) — training text for the character-level transformer
 
 The first build may take a few minutes while Cargo compiles dependencies; later runs are much faster.
