@@ -37,6 +37,10 @@
 //!cargo run --release -- gpt-train(Chapter 10)
 //!cargo run --release -- gpt-write(Chapter 10 (gpt-write "ROMEO:\n" 300 0.8))
 //!cargo run --release -- gpt-attend(Chapter 10 (gpt-attend "text"))
+//!cargo run --release -- llm-check(Chapter 11: an open model with Candle)
+//!cargo run --release -- llm-write(Chapter 11 (llm-write "ROMEO:\n" 100 0.8 [tuned]))
+//!cargo run --release -- llm-score(Chapter 11)
+//!cargo run --release -- llm-train(Chapter 11)
 mod bayes;
 mod data;
 mod explore;
@@ -44,6 +48,7 @@ mod forest;
 mod gpt;
 mod knn;
 mod linear;
+mod llm;
 mod logistic;
 mod metrics;
 mod nn;
@@ -92,12 +97,16 @@ fn main() -> AnyResult<()> {
         "gpt-train" => gpt::train(),
         "gpt-write" => gpt::write(),
         "gpt-attend" => gpt::attend(),
+        "llm-check" => llm::check(),
+        "llm-write" => llm::write(),
+        "llm-score" => llm::score(),
+        "llm-train" => llm::train(),
         _ => {
             eprintln!("Usage: cargo run --release -- <explore|clean|split|linear-train|linear-
 evaluate|train|evaluate|tune|serve|tree-train|tree-evaluate|tree-tune|forest-train|forest-evaluate|forest-
 tune|text-split|text-vocab|svm-train|svm-evaluate|svm-tune|svm-versions|svm-use|svm-heart|nb-heart|nb-
 tweets|knn-tune|knn-evaluate|nn-xor|nn-heart|nn-digits|nn-show|gpt-data|gpt-check|gpt-train|gpt-write|gpt-
-attend>");
+attend|llm-check|llm-write|llm-score|llm-train>");
             std::process::exit(1);
         }
     }

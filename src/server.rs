@@ -5,12 +5,14 @@
 //!POST /predict/forest random forest (Chapter 6)
 //!POST /predict/sentiment
 //!POST /predict/knnk-nearest neighbours, with the most similar patients (Chapter 8)
-//!POST /predict/nnneural network (Chapter 9)
-//!POST /generatetiny GPT writes Shakespeare-style text (Chapter 10) tweet sentiment, linear SVM (Chapter 7)
+//!POST /predict/nnneural network (Chapter 9Rust ML Handbook
+//!POST /generatetiny GPT writes Shakespeare-style text (Chapter 10)
+//!POST /generate/llmSmolLM2-135M, trained further on Shakespeare (Chapter 11)
 use crate::AnyResult;
 use crate::forest::{self, SavedForest};
 use crate::gpt::{self, SavedGpt};
 use crate::knn::{self, SavedKnn};
+use crate::llm;
 use crate::logistic::{self, SavedLogisticModel};
 use crate::nn::{self, SavedHeartNet};
 use crate::svm::{self, SavedSvm};
@@ -23,7 +25,7 @@ use std::{
     sync::Arc,
 };
 const ADDRESS: &str = "127.0.0.1:3000";
-/// Both models, loaded once and shared by every request.
+/// Every model, loaded once and shared by every request.
 struct AppState {
     logistic: SavedLogisticModel,
     tree: SavedTree,
@@ -32,6 +34,7 @@ struct AppState {
     knn: SavedKnn,
     nn: SavedHeartNet,
     gpt: SavedGpt,
+    llm: llm::Loaded,
 }
 type ApiError = (StatusCode, String);
 #[derive(Serialize)]
@@ -56,6 +59,7 @@ pub fn serve() -> AnyResult<()> {
     let knn: SavedKnn = serde_json::from_str(&std::fs::read_to_string(knn::MODEL)?)?;
     let nn: SavedHeartNet = serde_json::from_str(&std::fs::read_to_string(nn::HEART_MODEL)?)?;
     let gpt: SavedGpt = serde_json::from_str(&std::fs::read_to_string(gpt::MODEL)?)?;
+    let llm = llm::load_frozen(llm::TUNED)?;
     println!(
         "Loaded {} (alpha {}, threshold {:.2})",
         logistic::MODEL,
@@ -100,6 +104,12 @@ pub fn serve() -> AnyResult<()> {
         gpt.model.config.layers,
         gpt.model.n_params()
     );
+    println!(
+        "Loaded {} ({} layers, {} parameters)",
+        llm::TUNED,
+        llm.model.cfg.num_hidden_layers,
+        llm::n_params(&llm.tensors)
+    );
     println!("Expects: {}", logistic.features.join(", "));
     let app = Router::new()
         .route("/predict", post(predict_logistic))
@@ -109,6 +119,7 @@ pub fn serve() -> AnyResult<()> {
         .route("/predict/knn", post(predict_knn))
         .route("/predict/nn", post(predict_nn))
         .route("/generate", post(generate_text))
+        .route("/generate/llm", post(generate_llm))
         .with_state(Arc::new(AppState {
             logistic,
             tree,
@@ -117,6 +128,7 @@ pub fn serve() -> AnyResult<()> {
             knn,
             nn,
             gpt,
+            llm,
         }));
     // main() is not async, so start the async runtime here.
     tokio::runtime::Runtime::new()?.block_on(async {
@@ -347,4 +359,37 @@ async fn generate_text(
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     Ok(Json(GenerateReply { model: "gpt", text }))
+}
+/// The same request as /generate, but `length` counts tokens (word pieces), not characters.
+async fn generate_llm(
+    State(state): State<Arc<AppState>>,
+    Json(input): Json<GenerateRequest>,
+) -> Result<Json<GenerateReply>, ApiError> {
+    if input.length == 0 || input.length > 300 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "length must be between 1 and 300 tokens\n".to_string(),
+        ));
+    }
+    if !(input.temperature > 0.0 && input.temperature <= 2.0) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "temperature must be above 0 and at most 2\n".to_string(),
+        ));
+    }
+    let state = state.clone();
+    let text = tokio::task::spawn_blocking(move || {
+        llm::generate(
+            &state.llm,
+            &input.prompt,
+            input.length,
+            input.temperature,
+            input.seed,
+        )
+        .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
+    Ok(Json(GenerateReply { model: "llm", text }))
 }
